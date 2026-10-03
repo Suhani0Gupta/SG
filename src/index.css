@@ -32,13 +32,13 @@ button:active:not(:disabled) { transform: scale(.97); }
 @keyframes bar { from { width: 0; } }
 @keyframes slide { 0% { transform: translateX(-100%); } 100% { transform: translateX(350%); } }
 @keyframes pulse2 { 50% { opacity: .45; } }
-@keyframes sway { 0%, 100% { transform: rotate(-1.5deg); } 50% { transform: rotate(1.5deg); } }
+@keyframes sway { 0%, 100% { transform: rotate(-3deg); } 50% { transform: rotate(3deg); } }
 .rise { animation: rise .4s cubic-bezier(.2,.7,.2,1) both; }
 .fade { animation: fade .28s ease both; }
 .bar { animation: bar .8s cubic-bezier(.2,.7,.2,1) both; }
 .skel { background: #172032; border-radius: 1rem; animation: pulse2 1.4s ease-in-out infinite; }
 .indet::after { content: ""; position: absolute; inset: 0; width: 30%; background: var(--color-bloom); border-radius: 9999px; animation: slide 1.1s ease-in-out infinite; }
-.sway { transform-origin: 50% 100%; animation: sway 6s ease-in-out infinite; }
+.sway { transform-origin: 50% 100%; animation: sway 4.5s ease-in-out infinite; }
 ::-webkit-scrollbar { width: 8px; } ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 8px; }
 
 html { scrollbar-gutter: stable; }
@@ -46,3 +46,11 @@ html { scrollbar-gutter: stable; }
 
 [data-reveal] { opacity: 0; transform: translateY(36px) scale(.97); transition: opacity .7s ease, transform .7s cubic-bezier(.2,.7,.2,1); }
 [data-reveal].in { opacity: 1; transform: none; }
+
+@keyframes breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+@keyframes flutter { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(5deg); } }
+@keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+.bloom { transform-box: fill-box; transform-origin: 50% 100%; animation: breathe 3.2s ease-in-out infinite; }
+.leaf-l { transform-box: fill-box; transform-origin: 100% 100%; animation: flutter 3.8s ease-in-out infinite; }
+.leaf-r { transform-box: fill-box; transform-origin: 0% 100%; animation: flutter 4.4s ease-in-out infinite reverse; }
+.bob { animation: bob 3s ease-in-out infinite; }

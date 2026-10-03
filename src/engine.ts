@@ -22,13 +22,13 @@ export const loadHealth = (): Record<string, any> => read('jr_health', {});
 export const lastScanTime = (): number => Number(read('jr_last_scan', 0));
 
 const settings = () => ({ companies: DEFAULT_COMPANIES, everyHours: 6, whatsappPhone: '', whatsappKey: '', ...read('jr_settings', {}) });
-export const getSettings = () => { const s = settings(); return { companies: s.companies as string[], everyHours: s.everyHours as number, whatsappPhone: s.whatsappPhone as string, whatsappKeySet: !!s.whatsappKey }; };
+export const getSettings = () => { const s = settings(); return { companies: s.companies as string[], everyHours: s.everyHours as number, whatsappPhone: s.whatsappPhone as string, whatsappKeySet: !!s.whatsappKey, whatsappVerified: !!s.whatsappVerified }; };
 export const patchSettings = (b: any) => {
   const cur = read('jr_settings', {});
   if (Array.isArray(b.companies)) cur.companies = b.companies.map((x: any) => String(x).toLowerCase().trim()).filter((x: string) => /^[a-z0-9_-]{2,40}$/.test(x));
   if (b.everyHours) cur.everyHours = Math.min(48, Math.max(1, Number(b.everyHours)));
-  if (typeof b.whatsappPhone === 'string') cur.whatsappPhone = b.whatsappPhone.replace(/\D/g, '');
-  if (typeof b.whatsappKey === 'string' && b.whatsappKey.trim()) cur.whatsappKey = b.whatsappKey.trim();
+  if (typeof b.whatsappPhone === 'string') { const p = b.whatsappPhone.replace(/\D/g, ''); if (p !== cur.whatsappPhone) cur.whatsappVerified = false; cur.whatsappPhone = p; }
+  if (typeof b.whatsappKey === 'string' && b.whatsappKey.trim()) { cur.whatsappKey = b.whatsappKey.trim(); }
   write('jr_settings', cur);
 };
 
@@ -90,7 +90,7 @@ function score(job: any, prefs: any) {
 
 async function send(text: string): Promise<boolean> {
   const st = settings();
-  if (!st.whatsappPhone || !st.whatsappKey) return false;
+  if (!st.whatsappPhone || !st.whatsappKey || !st.whatsappVerified) return false;
   try {
     // no-cors: the request goes through even though the browser cannot read the reply
     await fetch(`https://api.callmebot.com/whatsapp.php?phone=${st.whatsappPhone}&text=${encodeURIComponent(text)}&apikey=${encodeURIComponent(st.whatsappKey)}`, { mode: 'no-cors' });
@@ -190,4 +190,42 @@ export async function restoreBackup(text: string, pw: string) {
   const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: fromB64(f.iv) as BufferSource }, await keyFrom(pw, fromB64(f.salt)), fromB64(f.data) as BufferSource);
   const o = JSON.parse(new TextDecoder().decode(plain));
   Object.entries(o).forEach(([k, v]) => { if (k.startsWith('jr_')) localStorage.setItem(k, String(v)); });
+}
+
+export const callMeBotUrl = (text: string) => { const st = settings(); return st.whatsappPhone && st.whatsappKey ? `https://api.callmebot.com/whatsapp.php?phone=${st.whatsappPhone}&text=${encodeURIComponent(text)}&apikey=${encodeURIComponent(st.whatsappKey)}` : ''; };
+
+// ---------- WhatsApp code check: proves the number and key can receive messages ----------
+export async function sendVerifyCode(): Promise<boolean> {
+  const st = settings();
+  if (!st.whatsappPhone || !st.whatsappKey) return false;
+  const code = String(crypto.getRandomValues(new Uint32Array(1))[0] % 1000000).padStart(6, '0');
+  write('jr_wa_code', { code, exp: Date.now() + 10 * 60 * 1000 });
+  try { await fetch(callMeBotUrl(`Your job site verification code is ${code}`), { mode: 'no-cors' }); return true; } catch { return false; }
+}
+export function checkVerifyCode(input: string): boolean {
+  const c = read('jr_wa_code', null);
+  if (!c || Date.now() > c.exp || input.trim() !== c.code) return false;
+  const cur = read('jr_settings', {}); cur.whatsappVerified = true; write('jr_settings', cur);
+  try { localStorage.removeItem('jr_wa_code'); } catch {}
+  return true;
+}
+export function clearWhatsapp() {
+  const cur = read('jr_settings', {}); delete cur.whatsappPhone; delete cur.whatsappKey; delete cur.whatsappVerified; write('jr_settings', cur);
+}
+
+// Zero-setup number check: opens WhatsApp with a code already written for her to send to herself
+export function startPhoneCheck(): string {
+  const st = settings();
+  const code = String(crypto.getRandomValues(new Uint32Array(1))[0] % 1000000).padStart(6, '0');
+  write('jr_wa_code', { code, exp: Date.now() + 10 * 60 * 1000 });
+  return `https://wa.me/${st.whatsappPhone}?text=${encodeURIComponent(`Your job site code is ${code}`)}`;
+}
+
+// Browser notification when a scan finds new matching jobs (only works while the site is open)
+export function browserNotify(digest: string) {
+  try {
+    if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+    const parts = digest.split('\n\n');
+    new Notification(parts[0].replace(/:$/, ''), { body: parts.slice(1, 4).map(p => p.split('\n')[0]).join('\n') });
+  } catch {}
 }

@@ -1,6 +1,6 @@
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { Search, RefreshCw, ArrowDown, ArrowUp, Bookmark, X, ExternalLink, MapPin, Building2, AlertTriangle, CheckCircle2, HelpCircle, Undo2 } from 'lucide-react';
-import { loadJobs, loadPrefs, loadHealth, runScan, savePrefs, getSettings, patchSettings, notifyTest, checkCompany, lastScanTime, DEFAULT_COMPANIES, waLink, inIndia, TA_TERMS, hasTerm, analyzeMetrics, INTERVIEW_PREP, encryptBackup, restoreBackup } from './engine';
+import { loadJobs, loadPrefs, loadHealth, runScan, savePrefs, getSettings, patchSettings, notifyTest, checkCompany, lastScanTime, DEFAULT_COMPANIES, waLink, browserNotify, callMeBotUrl, sendVerifyCode, checkVerifyCode, clearWhatsapp, startPhoneCheck, inIndia, TA_TERMS, hasTerm, analyzeMetrics, INTERVIEW_PREP, encryptBackup, restoreBackup } from './engine';
 
 const APP_NAME = 'Made with care'; // <- change your app's name here
 
@@ -10,7 +10,7 @@ type Job = {
   unknown_fields: string[]; status: string; why_apply?: string; is_bengaluru?: boolean; is_remote?: boolean; first_seen?: string;
 };
 type Prefs = Record<string, any>;
-type Tab = 'jobs' | 'review' | 'saved' | 'applied' | 'skipped' | 'prefs' | 'cv' | 'linkedin' | 'settings' | 'alerts' | 'check' | 'sources';
+type Tab = 'jobs' | 'review' | 'saved' | 'applied' | 'skipped' | 'prefs' | 'cv' | 'linkedin' | 'settings' | 'alerts' | 'guide' | 'check' | 'sources';
 type Profile = { name: string; email: string; phone: string; linkedin: string; notice: string; ctc: string; note: string; resume: string };
 type Cv = { name: string; data: string } | null;
 const emptyProfile: Profile = { name: '', email: '', phone: '', linkedin: '', notice: '', ctc: '', resume: '', note: 'Hi {company} team, I am excited about the {role} role. [Add one real result you delivered, such as a hiring number or time-to-fill.] [Say in one line why this company.]' };
@@ -22,8 +22,10 @@ const tone = (s: number) => s >= 70 ? 'text-green-400 bg-green-500/10 border-gre
 const barTone = (s: number) => s >= 70 ? 'bg-good' : s >= 45 ? 'bg-warn' : 'bg-bad';
 const loadMarks = (): Record<string, Mark> => { try { return JSON.parse(localStorage.getItem('jr_marks') || '{}'); } catch { return {}; } };
 
+const loadUi = (): any => { try { return JSON.parse(localStorage.getItem('jr_ui') || '{}'); } catch { return {}; } };
+
 export default function App() {
-  const [tab, setTab] = useState<Tab>('jobs');
+  const [tab, setTab] = useState<Tab>(() => { const t = loadUi().tab; return ['jobs', 'review', 'saved', 'applied', 'skipped', 'prefs', 'cv', 'linkedin', 'check'].includes(t) ? t : 'jobs'; });
   const [allJobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [intro, setIntro] = useState(true);
@@ -31,9 +33,9 @@ export default function App() {
   const [selected, setSelected] = useState<string | null>(null);
   const [q, setQ] = useState('');
   const dq = useDeferredValue(q);
-  const [minScore, setMinScore] = useState(0);
-  const [loc, setLoc] = useState<'all' | 'india' | 'blr'>('all');
-  const [sort, setSort] = useState<'score' | 'title'>('score');
+  const [minScore, setMinScore] = useState<number>(() => loadUi().minScore ?? 0);
+  const [loc, setLoc] = useState<'all' | 'india' | 'blr'>(() => loadUi().loc || 'all');
+  const [sort, setSort] = useState<'score' | 'title'>(() => loadUi().sort || 'score');
   const [scanning, setScanning] = useState(false);
   const [msg, setMsg] = useState('');
   const [toast, setToast] = useState<{ text: string; undo?: () => void } | null>(null);
@@ -48,10 +50,22 @@ export default function App() {
   const [digest, setDigest] = useState('');
   const [lens, setLens] = useState<'overview' | 'hiring' | 'prep'>('overview');
   const [startHidden, setStartHidden] = useState(() => { try { return localStorage.getItem('jr_start_done') === '1'; } catch { return false; } });
-  const [mncOnly, setMncOnly] = useState(false);
+  const [mncOnly, setMncOnly] = useState<boolean>(() => loadUi().mncOnly ?? false);
   const [profile, setProfile] = useState<Profile>(() => { try { return { ...emptyProfile, ...JSON.parse(localStorage.getItem('jr_profile') || '{}') }; } catch { return emptyProfile; } });
   const [cv, setCv] = useState<Cv>(() => { try { return JSON.parse(localStorage.getItem('jr_cv') || 'null'); } catch { return null; } });
   useEffect(() => { try { localStorage.setItem('jr_profile', JSON.stringify(profile)); } catch {} }, [profile]);
+  useEffect(() => { try { localStorage.setItem('jr_ui', JSON.stringify({ tab, minScore, loc, mncOnly, sort })); } catch {} }, [tab, minScore, loc, mncOnly, sort]);
+  useEffect(() => { try { navigator.storage?.persist?.(); } catch {} }, []);
+  const [lastVisit] = useState(() => {
+    try {
+      const s = sessionStorage.getItem('jr_prev_visit'); if (s !== null) return Number(s);
+      const l = Number(localStorage.getItem('jr_last_visit') || 0);
+      sessionStorage.setItem('jr_prev_visit', String(l)); localStorage.setItem('jr_last_visit', String(Date.now()));
+      return l;
+    } catch { return 0; }
+  });
+  let setupDone = false;
+  try { setupDone = !!cv && !!profile.name && localStorage.getItem('jr_prefs') !== null; } catch {}
 
   const refresh = useCallback(async () => {
     try {
@@ -65,7 +79,7 @@ export default function App() {
     const tick = async () => {
       if (Date.now() - lastScanTime() < getSettings().everyHours * 3600000) return;
       setScanning(true);
-      try { const r = await runScan(); if (!r.busy) { setDigest(r.digest || ''); await refresh(); } } catch {}
+      try { const r = await runScan(); if (!r.busy) { setDigest(r.digest || ''); if (r.digest) browserNotify(r.digest); await refresh(); } } catch {}
       setScanning(false);
     };
     const a = setTimeout(tick, 2500); const b = setInterval(tick, 10 * 60 * 1000);
@@ -92,7 +106,7 @@ export default function App() {
     setScanning(true); setMsg('');
     try {
       const r = await runScan();
-      setDigest(r.digest || '');
+      setDigest(r.digest || ''); if (r.digest) browserNotify(r.digest);
       if (r.removed?.length) setMsg(`Removed ${r.removed.length} company name(s) that have no job board: ${r.removed.join(', ')}.`);
       showToast(r.busy ? 'A scan is already running. Try again in a minute.' : r.totalRawFetched === 0 ? 'Scan found 0 jobs. Check your internet connection and the Sources tab.' : `Scan done: ${r.totalJobsInDatabase} matching jobs (${r.bengaluruJobs} in Bengaluru) from ${r.totalRawFetched} openings checked.`);
       await refresh();
@@ -131,8 +145,8 @@ export default function App() {
       const el = e.target as HTMLElement;
       if (/INPUT|TEXTAREA|SELECT/.test(el.tagName) || e.metaKey || e.ctrlKey || !['jobs', 'review', 'saved', 'applied', 'skipped'].includes(tab)) return;
       const i = visible.findIndex(x => x.canonical_url === selected);
-      if (e.key === 'ArrowDown' || e.key === 'j') { e.preventDefault(); const n = visible[Math.min(i + 1, visible.length - 1)]; if (n) setSelected(n.canonical_url); }
-      else if (e.key === 'ArrowUp' || e.key === 'k') { e.preventDefault(); const n = visible[Math.max(i - 1, 0)]; if (n) setSelected(n.canonical_url); }
+      if (e.key === 'j') { const n = visible[Math.min(i + 1, visible.length - 1)]; if (n) setSelected(n.canonical_url); }
+      else if (e.key === 'k') { const n = visible[Math.max(i - 1, 0)]; if (n) setSelected(n.canonical_url); }
       else if (e.key === 's' && job && tab !== 'saved') act(job, 'saved');
       else if (e.key === 'x' && job && tab !== 'skipped') act(job, 'skipped');
       else if (e.key === 'Escape') setSelected(null);
@@ -141,7 +155,13 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey);
   }, [visible, selected, job, tab, act]);
 
-  useEffect(() => { if (selected) document.getElementById('row-' + selected)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }, [selected]);
+  useEffect(() => {
+    const el = selected ? document.getElementById('row-' + selected) : null; const box = document.getElementById('job-list');
+    if (!el || !box || box.scrollHeight <= box.clientHeight) return;
+    const r = el.getBoundingClientRect(), b = box.getBoundingClientRect();
+    if (r.top < b.top) box.scrollBy({ top: r.top - b.top - 8, behavior: 'smooth' });
+    else if (r.bottom > b.bottom) box.scrollBy({ top: r.bottom - b.bottom + 8, behavior: 'smooth' });
+  }, [selected]);
 
   useEffect(() => {
     const check = () => {
@@ -204,7 +224,7 @@ export default function App() {
     ['saved', 'Saved', count(j => marks[j.canonical_url] === 'saved')],
     ['applied', 'Applied', count(j => marks[j.canonical_url] === 'applied')],
     ['skipped', 'Skipped', count(j => marks[j.canonical_url] === 'skipped')],
-    ['check', 'Check a job'], ['linkedin', 'LinkedIn'], ['cv', 'CV & details'], ['prefs', 'My preferences'], ['alerts', 'WhatsApp alerts'], ['sources', 'Sources'],
+    ['check', 'Check a job'], ['linkedin', 'LinkedIn'], ['cv', 'CV & details'], ['prefs', 'My preferences'], 
   ];
   const isList = ['jobs', 'review', 'saved', 'applied', 'skipped'].includes(tab);
   const chip = (on: boolean) => `rounded-full border px-3 py-1 text-xs font-semibold ${on ? 'border-bloom bg-bloom text-white' : 'border-line bg-card text-muted hover:border-bloom'}`;
@@ -235,14 +255,17 @@ export default function App() {
       <main className={`mx-auto max-w-7xl px-5 pt-6 ${isList ? 'pb-6' : 'pb-48'}`}>
         {msg && <div className="fade mb-5 flex justify-between gap-3 rounded-xl border border-line bg-card px-4 py-3 text-sm"><span>{msg}</span><button onClick={() => setMsg('')} aria-label="Dismiss"><X size={16} /></button></div>}
         {tab === 'prefs' && <div className="fade"><PrefsView prefs={prefs} setPrefs={setPrefs} toast={showToast} /></div>}
-        {tab === 'alerts' && <div className="fade"><AlertsView toast={showToast} /></div>}
         {tab === 'check' && <div className="fade"><CheckJob profile={profile} extra={prefs?.must_have_keywords || []} /></div>}
         {tab === 'linkedin' && <div className="fade"><LinkedInView /></div>}
         {tab === 'cv' && <div className="fade"><CvView cv={cv} upload={uploadCv} remove={removeCv} profile={profile} setProfile={setProfile} toast={showToast} /></div>}
-        {tab === 'sources' && <div className="fade"><SourcesView health={health} /></div>}
 
-        {tab === 'jobs' && !loading && !startHidden && <GetStarted cv={cv} profile={profile} go={t => { setTab(t); setSelected(null); }} hide={() => { setStartHidden(true); try { localStorage.setItem('jr_start_done', '1'); } catch {} }} />}
-        {tab === 'jobs' && digest && <div className="fade mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-ice bg-bloom-soft px-4 py-3 text-sm"><span>New matching jobs were found.</span><a href={waLink(digest)} target="_blank" rel="noreferrer" className="rounded-full bg-bloom px-4 py-1.5 font-semibold text-white hover:bg-bloom-hover">Send to my WhatsApp</a></div>}
+        {tab === 'jobs' && !loading && lastVisit > 0 && (
+          <div className="fade mb-4 rounded-2xl border border-line bg-card px-4 py-3 text-sm">
+            Welcome back. <b>{jobs.filter(j => !marks[j.canonical_url] && j.first_seen && Date.parse(j.first_seen) > lastVisit).length}</b> new job(s) since your last visit on {new Date(lastVisit).toLocaleDateString()}. Your saved, applied and skipped jobs are where you left them.
+          </div>
+        )}
+        {tab === 'jobs' && !loading && !startHidden && !setupDone && <GetStarted cv={cv} profile={profile} go={t => { setTab(t); setSelected(null); }} hide={() => { setStartHidden(true); try { localStorage.setItem('jr_start_done', '1'); } catch {} }} />}
+        {tab === 'jobs' && digest && <div className="fade mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-ice bg-bloom-soft px-4 py-3 text-sm"><span>New matching jobs were found.</span><span className="flex gap-2"><button onClick={() => { navigator.clipboard?.writeText(digest).catch(() => {}); showToast('List copied.'); }} className="rounded-full border border-line px-4 py-1.5 font-semibold hover:bg-card-hover">Copy list</button><a href={waLink(digest)} target="_blank" rel="noreferrer" className="rounded-full bg-bloom px-4 py-1.5 font-semibold text-white hover:bg-bloom-hover">Share on WhatsApp</a></span></div>}
         {tab === 'jobs' && !loading && (
           <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
             {([['New in 24 hours', stats.fresh], ['Strong matches', stats.strong], ['Applied this week', stats.week], ['Follow-ups due', stats.due]] as [string, number][]).map(([l, n], i) => (
@@ -266,7 +289,7 @@ export default function App() {
                 <button onClick={() => setMncOnly(!mncOnly)} className={chip(mncOnly)}>MNC only</button>
                 <button onClick={() => setSort(sort === 'score' ? 'title' : 'score')} className={chip(false)}>Sort: {sort === 'score' ? 'best first' : 'A to Z'}</button>
               </div>
-              <p className="mb-3 text-xs text-muted">{visible.length} jobs. Tip: use ↑ ↓ to browse, S to save, X to skip. {loc !== 'all' && visible.length < 10 && <button onClick={() => setLoc('all')} className="font-semibold text-ice underline">Show all locations</button>}</p>
+              <p className="mb-3 text-xs text-muted">{visible.length} jobs. Tip: press J or K to move between jobs, S to save, X to skip. {loc !== 'all' && visible.length < 10 && <button onClick={() => setLoc('all')} className="font-semibold text-ice underline">Show all locations</button>}</p>
 
               {loading ? (
                 <div className="space-y-3">{[0, 1, 2, 3].map(i => <div key={i} className="skel h-24" />)}</div>
@@ -364,18 +387,18 @@ export default function App() {
 function Tulip({ show }: { show: boolean }) {
   return (
     <div aria-hidden={!show} className={`pointer-events-none fixed bottom-0 right-3 z-20 flex items-end gap-1.5 transition-all duration-500 ease-out sm:right-6 ${show ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0'}`}>
-      <span className="mb-3 rounded-full border border-line bg-card px-3 py-1 font-display text-sm font-bold text-white shadow-lg">Damini 😝</span>
+      <span className="bob mb-3 rounded-full border border-line bg-card px-3 py-1 font-display text-sm font-bold text-white shadow-lg">Damini 😝</span>
       <svg role="img" aria-label="A small blue tulip" viewBox="0 0 140 220" className="sway block w-14 sm:w-[4.5rem]">
         <defs>
           <linearGradient id="tc" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#38bdf8" /><stop offset="1" stopColor="#0284c7" /></linearGradient>
           <linearGradient id="ts" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#1d4ed8" /><stop offset="1" stopColor="#1e3a8a" /></linearGradient>
         </defs>
         <path d="M70 108 C70 150 68 185 70 220" stroke="#0f766e" strokeWidth="5" fill="none" strokeLinecap="round" />
-        <path d="M70 195 C40 185 28 152 34 128 C56 142 68 166 70 195Z" fill="#0d9488" />
-        <path d="M70 178 C98 170 112 142 106 120 C86 134 72 154 70 178Z" fill="#14b8a6" />
-        <path d="M34 30 C18 58 26 96 70 108 C58 78 56 52 34 30Z" fill="url(#ts)" />
+        <g className="leaf-l"><path d="M70 195 C40 185 28 152 34 128 C56 142 68 166 70 195Z" fill="#0d9488" /></g>
+        <g className="leaf-r"><path d="M70 178 C98 170 112 142 106 120 C86 134 72 154 70 178Z" fill="#14b8a6" /></g>
+        <g className="bloom"><path d="M34 30 C18 58 26 96 70 108 C58 78 56 52 34 30Z" fill="url(#ts)" />
         <path d="M106 30 C122 58 114 96 70 108 C82 78 84 52 106 30Z" fill="url(#ts)" />
-        <path d="M70 14 C44 38 42 80 70 110 C98 80 96 38 70 14Z" fill="url(#tc)" />
+        <path d="M70 14 C44 38 42 80 70 110 C98 80 96 38 70 14Z" fill="url(#tc)" /></g>
       </svg>
     </div>
   );
@@ -454,11 +477,14 @@ function LinkedInView() {
 function CvView({ cv, upload, remove, profile, setProfile, toast }: { cv: Cv; upload: (f: File) => void; remove: () => void; profile: Profile; setProfile: (p: Profile) => void; toast: (s: string) => void }) {
   const field = 'mt-1 w-full rounded-xl border border-line bg-card px-3 py-2.5 transition focus:border-bloom';
   const [pw, setPw] = useState('');
+  const [lastBackup, setLastBackup] = useState(() => Number(localStorage.getItem('jr_last_backup') || 0));
   const exportAll = async () => {
     if (pw.length < 6) { toast('Choose a backup password with at least 6 characters.'); return; }
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([await encryptBackup(pw)], { type: 'application/json' }));
     a.download = 'my-job-site-backup.json'; a.click();
+    try { localStorage.setItem('jr_last_backup', String(Date.now())); } catch {}
+    setLastBackup(Date.now());
   };
   const importAll = (f: File) => {
     if (!pw) { toast('Type the backup password first.'); return; }
@@ -517,6 +543,8 @@ function CvView({ cv, upload, remove, profile, setProfile, toast }: { cv: Cv; up
       <div data-reveal className="rounded-2xl border border-line bg-card p-6">
         <h2 className="font-display text-2xl font-extrabold">Back up my data</h2>
         <p className="mt-1 text-sm text-muted">Everything is saved in this browser only. Download a backup to move to another device or keep a safe copy. The file is encrypted with the password you type below. If you forget the password, the file cannot be opened.</p>
+        <p className="mt-2 text-sm">Last backup: <b>{lastBackup ? new Date(lastBackup).toLocaleDateString() : 'never'}</b></p>
+        <p className="mt-1 text-xs text-muted">Some browsers, such as Safari, can clear a website's saved data after about a week without a visit. A backup protects you, and so does adding this site to your phone's home screen.</p>
         <label className="mt-4 block text-sm font-semibold">Backup password<input type="password" className={field + ' sm:w-64'} value={pw} onChange={e => setPw(e.target.value)} autoComplete="off" /></label>
         <div className="mt-4 flex flex-wrap gap-3">
           <button onClick={exportAll} className="rounded-full bg-bloom px-5 py-2.5 text-sm font-semibold text-white hover:bg-bloom-hover">Download backup</button>
@@ -544,14 +572,13 @@ function GetStarted({ cv, profile, go, hide }: { cv: Cv; profile: Profile; go: (
     ['Add your CV', !!cv, 'cv'],
     ['Add your name and details', !!profile.name, 'cv'],
     ['Check your job titles and keywords', localStorage.getItem('jr_prefs') !== null, 'prefs'],
-    ['Set up WhatsApp alerts (optional)', getSettings().whatsappKeySet, 'alerts'],
   ];
   return (
     <div className="fade mb-6 rounded-2xl border border-line bg-card p-5">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h2 className="font-display text-xl font-extrabold">Start here ({steps.filter(x => x[1]).length} of 4 done)</h2>
-          <p className="text-sm text-muted">Four quick steps and the site is ready. Everything is saved in this browser only.</p>
+          <h2 className="font-display text-xl font-extrabold">Start here ({steps.filter(x => x[1]).length} of 3 done)</h2>
+          <p className="text-sm text-muted">Three quick steps and the site is ready. Everything is saved in this browser only.</p>
         </div>
         <button onClick={hide} className="text-sm text-muted hover:text-white">Hide</button>
       </div>
@@ -560,42 +587,6 @@ function GetStarted({ cv, profile, go, hide }: { cv: Cv; profile: Profile; go: (
           <li key={label}><button onClick={() => go(t)} className="flex w-full items-center gap-2 rounded-xl border border-line px-3 py-2 text-left text-sm hover:bg-card-hover"><span className={ok ? 'text-good' : 'text-muted'}>{ok ? '✓' : '○'}</span>{label}</button></li>
         ))}
       </ul>
-    </div>
-  );
-}
-
-function AlertsView({ toast }: { toast: (s: string) => void }) {
-  const init = getSettings();
-  const [phone, setPhone] = useState(init.whatsappPhone || '');
-  const [key, setKey] = useState('');
-  const [saved, setSaved] = useState(init.whatsappKeySet);
-  const field = 'mt-1 w-full rounded-xl border border-line bg-card px-3 py-2.5 transition focus:border-ice';
-  const save = () => { patchSettings({ whatsappPhone: phone, whatsappKey: key }); setKey(''); setSaved(getSettings().whatsappKeySet); toast('WhatsApp details saved.'); };
-  const test = async () => { const ok = await notifyTest(); toast(ok ? 'Test message sent. Check WhatsApp (it can take a minute).' : 'Not sent. Save your number and key first.'); };
-  return (
-    <div data-reveal className="max-w-3xl rounded-2xl border border-line bg-card p-6">
-      <h2 className="font-display text-2xl font-extrabold">WhatsApp alerts</h2>
-      <p className="mt-1 text-sm text-muted">There are two ways to get job alerts on WhatsApp. The first needs no setup.</p>
-      <h3 className="mt-4 font-display font-bold">Option 1: One tap, no setup</h3>
-      <p className="text-sm text-muted">After a scan finds new jobs, a button appears on the Best matches page. Tap it and WhatsApp opens with the jobs ready to send to yourself. This uses WhatsApp's own link feature and shares nothing with anyone else.</p>
-      <h3 className="mt-4 font-display font-bold">Option 2: Automatic messages (free, set up once)</h3>
-      <ol className="mt-1 list-decimal space-y-1 pl-5 text-sm text-muted">
-        <li>On your phone, open <b>callmebot.com/blog/free-api-whatsapp-messages</b> and save the WhatsApp number shown there as a contact.</li>
-        <li>In WhatsApp, send that contact this message: <b>I allow callmebot to send me messages</b></li>
-        <li>Wait for its reply. It contains your key.</li>
-        <li>Enter your number (country code first, no plus sign, for example 919876543210) and the key below, then press Save.</li>
-        <li>Press <b>Send a test message</b> to check that it works.</li>
-      </ol>
-      <div className="mt-4 grid gap-4 sm:grid-cols-2">
-        <label className="block text-sm font-semibold">Your WhatsApp number<input className={field} value={phone} placeholder="919876543210" onChange={e => setPhone(e.target.value)} /></label>
-        <label className="block text-sm font-semibold">CallMeBot key {saved && <span className="font-normal text-good">(saved)</span>}
-          <input type="password" className={field} value={key} placeholder={saved ? 'Leave blank to keep the saved key' : 'Paste key'} onChange={e => setKey(e.target.value)} autoComplete="off" /></label>
-      </div>
-      <div className="mt-4 flex flex-wrap gap-3">
-        <button onClick={save} className="rounded-full bg-bloom px-5 py-2.5 text-sm font-semibold text-white hover:bg-bloom-hover">Save</button>
-        <button onClick={test} className="rounded-full border border-ice px-5 py-2.5 text-sm font-semibold text-ice hover:bg-bloom-soft">Send a test message</button>
-      </div>
-      <p className="mt-3 text-xs text-muted">The site cannot confirm that a message arrived, so check WhatsApp after pressing the test button. Option 2 uses CallMeBot, a free service made for personal use. It is not run by WhatsApp, and your number, key and the job titles pass through it. Use Option 1 if you would rather not share that.</p>
     </div>
   );
 }
@@ -752,28 +743,3 @@ function PrefsView({ prefs, setPrefs, toast }: { prefs: Prefs | null; setPrefs: 
   );
 }
 
-function SourcesView({ health }: { health: Record<string, any> }) {
-  const rows = Object.values(health);
-  const [res, setRes] = useState('');
-  const test = async () => {
-    setRes('Sending…');
-    try { const r = { ok: await notifyTest() }; setRes(r.ok ? 'Sent. Check WhatsApp (it can take a minute).' : 'Not sent. Add your WhatsApp details in the Settings tab first.'); }
-    catch { setRes('Could not reach the server.'); }
-  };
-  return (
-    <div data-reveal className="max-w-3xl rounded-2xl border border-line bg-card p-6">
-      <h2 className="font-display text-2xl font-extrabold">Sources</h2>
-      <p className="mt-1 text-sm text-muted">Where jobs come from, and whether each source worked on its last run.</p>
-      {rows.length === 0 ? <p className="mt-4 text-sm text-muted">No source has run yet. Press “Scan for new jobs” first.</p> : (
-        <ul className="mt-4 divide-y divide-line">
-          {rows.map((r: any) => (
-            <li key={r.source + r.company} className="flex items-center justify-between py-3 text-sm">
-              <span><b className="font-display capitalize">{r.company}</b> <span className="text-muted">on {r.source}</span></span>
-              <span className={r.status === 'healthy' ? 'font-semibold text-good' : 'font-semibold text-bad'}>{r.status === 'healthy' ? `${r.jobsFound} of ${r.openings ?? '?'} openings` : (r.error || 'Failed')}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}

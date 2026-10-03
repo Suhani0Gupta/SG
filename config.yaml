@@ -1,0 +1,37 @@
+# Job Radar Global Configuration
+app:
+  name: "Job Radar"
+  environment: "production"
+  base_url: "http://localhost:3000"
+  data_dir: "./data"
+
+security:
+  session_cookie_name: "jobradar_session"
+  session_lifetime_days: 14
+  rate_limit_per_minute: 60
+  login_rate_limit_per_minute: 5
+
+sources:
+  poll_interval_minutes: 45
+  rate_limit_delay_seconds: 2.0
+  max_retries: 3
+  backoff_factor: 2.0
+  timeout_seconds: 15
+  user_agent: "JobRadar/1.0 (Bengaluru Job Seeker Bot; contact: private-admin@local)"
+
+cost_control:
+  monthly_budget_usd: 10.0
+  llm_model: "claude-sonnet-5-5"
+  max_daily_llm_calls_per_user: 50
+  cache_jd_parsing_days: 90
+
+scoring:
+  default_mnc_weight: 20
+  work_setup_weight: 12
+  skills_match_weight: 25
+  seniority_fit_weight: 15
+  compensation_stated_weight: 10
+  perks_weight: 8
+  culture_signals_weight: 10
+  red_flag_penalty: -10
+  min_confidence_for_bonus: 0.70

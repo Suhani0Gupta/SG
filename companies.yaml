@@ -1,0 +1,105 @@
+# Bengaluru Tech Companies Configuration
+# Sourced via public ATS endpoints (Greenhouse, Lever)
+
+companies:
+  # Greenhouse Sources (verified public endpoints)
+  - slug: "gitlab"
+    name: "GitLab"
+    source: "greenhouse"
+    type: "global_tech"
+    india_hiring: true
+    is_remote_first: true
+
+  - slug: "canonical"
+    name: "Canonical"
+    source: "greenhouse"
+    type: "global_tech"
+    india_hiring: true
+    is_remote_first: true
+
+  - slug: "razorpay"
+    name: "Razorpay"
+    source: "greenhouse"
+    type: "fintech_unicorn"
+    location_hq: "Bengaluru"
+    india_hiring: true
+
+  - slug: "postman"
+    name: "Postman"
+    source: "greenhouse"
+    type: "product_tech"
+    location_hq: "Bengaluru / San Francisco"
+    india_hiring: true
+
+  - slug: "stripe"
+    name: "Stripe"
+    source: "greenhouse"
+    type: "mnc"
+    india_hiring: true
+    bengaluru_office: true
+
+  - slug: "automattic"
+    name: "Automattic"
+    source: "greenhouse"
+    type: "global_tech"
+    india_hiring: true
+    is_remote_first: true
+
+  - slug: "elastic"
+    name: "Elastic"
+    source: "greenhouse"
+    type: "global_tech"
+    india_hiring: true
+    bengaluru_office: true
+
+  - slug: "github"
+    name: "GitHub"
+    source: "greenhouse"
+    type: "mnc"
+    india_hiring: true
+    bengaluru_office: true
+
+  - slug: "browserstack"
+    name: "BrowserStack"
+    source: "greenhouse"
+    type: "product_tech"
+    india_hiring: true
+
+  - slug: "twilio"
+    name: "Twilio"
+    source: "greenhouse"
+    type: "global_tech"
+    india_hiring: true
+    bengaluru_office: true
+
+  - slug: "datadog"
+    name: "Datadog"
+    source: "greenhouse"
+    type: "global_tech"
+    india_hiring: true
+
+  - slug: "airbnb"
+    name: "Airbnb"
+    source: "greenhouse"
+    type: "global_tech"
+    india_hiring: true
+    bengaluru_tech_hub: true
+
+  # Lever Sources (reserved for Phase 1b step)
+  - slug: "atlassian"
+    name: "Atlassian"
+    source: "lever"
+    type: "mnc"
+    bengaluru_rd: true
+
+  - slug: "clevertap"
+    name: "CleverTap"
+    source: "lever"
+    type: "product_tech"
+    location_hq: "Bengaluru / Mumbai"
+
+  - slug: "inmobi"
+    name: "InMobi"
+    source: "lever"
+    type: "global_tech"
+    location_hq: "Bengaluru"

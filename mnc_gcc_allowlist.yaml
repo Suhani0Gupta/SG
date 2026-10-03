@@ -1,0 +1,164 @@
+# 50+ Well-Known MNCs, Global Capability Centers (GCCs), and Tier-1 Global Tech with Bengaluru Presence
+# Used for exact allowlist bonus (+mnc_weight) before fallback to LLM classification
+
+allowlist:
+  # Tech Giants / FAANG+
+  - name: "Google"
+    aliases: ["Google India", "Alphabet"]
+    category: "MNC"
+  - name: "Microsoft"
+    aliases: ["Microsoft India R&D", "Microsoft IDC"]
+    category: "MNC"
+  - name: "Amazon"
+    aliases: ["Amazon Development Centre India", "AWS"]
+    category: "MNC"
+  - name: "Apple"
+    aliases: ["Apple India"]
+    category: "MNC"
+  - name: "Meta"
+    aliases: ["Meta Platforms", "Facebook"]
+    category: "MNC"
+
+  # Enterprise Software & Cloud
+  - name: "Adobe"
+    aliases: ["Adobe Systems"]
+    category: "MNC"
+  - name: "Salesforce"
+    aliases: ["Salesforce India"]
+    category: "MNC"
+  - name: "SAP"
+    aliases: ["SAP Labs India"]
+    category: "MNC"
+  - name: "Oracle"
+    aliases: ["Oracle India"]
+    category: "MNC"
+  - name: "Intuit"
+    aliases: ["Intuit India"]
+    category: "MNC"
+  - name: "ServiceNow"
+    aliases: ["ServiceNow India"]
+    category: "MNC"
+  - name: "Cisco"
+    aliases: ["Cisco Systems India"]
+    category: "MNC"
+  - name: "VMware"
+    aliases: ["Broadcom", "VMware India"]
+    category: "MNC"
+  - name: "Atlassian"
+    aliases: ["Atlassian India"]
+    category: "MNC"
+  - name: "Twilio"
+    aliases: ["Twilio India"]
+    category: "MNC"
+
+  # Global Capability Centers (GCC) - Retail & E-commerce
+  - name: "Walmart Global Tech"
+    aliases: ["Walmart Labs", "Walmart India"]
+    category: "GCC"
+  - name: "Target"
+    aliases: ["Target India", "Target Corporation India"]
+    category: "GCC"
+  - name: "Lowe's"
+    aliases: ["Lowe's India"]
+    category: "GCC"
+  - name: "Tesco"
+    aliases: ["Tesco Bengaluru", "Tesco Technology"]
+    category: "GCC"
+  - name: "Home Depot"
+    aliases: ["The Home Depot"]
+    category: "GCC"
+
+  # Banking, Financial Services & FinTech GCCs
+  - name: "Goldman Sachs"
+    aliases: ["Goldman Sachs Services India"]
+    category: "GCC"
+  - name: "Morgan Stanley"
+    aliases: ["Morgan Stanley India"]
+    category: "GCC"
+  - name: "JPMorgan Chase"
+    aliases: ["J.P. Morgan", "JPMorgan Services India"]
+    category: "GCC"
+  - name: "Wells Fargo"
+    aliases: ["Wells Fargo India Solutions"]
+    category: "GCC"
+  - name: "Standard Chartered"
+    aliases: ["Standard Chartered GBS"]
+    category: "GCC"
+  - name: "BNP Paribas"
+    aliases: ["BNP Paribas India"]
+    category: "GCC"
+  - name: "Barclays"
+    aliases: ["Barclays Global Service Centre"]
+    category: "GCC"
+  - name: "American Express"
+    aliases: ["Amex", "American Express India"]
+    category: "GCC"
+  - name: "Visa"
+    aliases: ["Visa India"]
+    category: "MNC"
+  - name: "Mastercard"
+    aliases: ["Mastercard India"]
+    category: "MNC"
+  - name: "PayPal"
+    aliases: ["PayPal India"]
+    category: "MNC"
+  - name: "Stripe"
+    aliases: ["Stripe India"]
+    category: "MNC"
+
+  # Semiconductors, Hardware & Networking
+  - name: "Intel"
+    aliases: ["Intel India"]
+    category: "MNC"
+  - name: "Qualcomm"
+    aliases: ["Qualcomm India"]
+    category: "MNC"
+  - name: "Nvidia"
+    aliases: ["Nvidia Graphics"]
+    category: "MNC"
+  - name: "AMD"
+    aliases: ["Advanced Micro Devices India"]
+    category: "MNC"
+  - name: "Texas Instruments"
+    aliases: ["TI India"]
+    category: "MNC"
+  - name: "Broadcom"
+    aliases: ["Broadcom India"]
+    category: "MNC"
+
+  # Healthcare, Biotech & Pharma GCCs
+  - name: "Novartis"
+    aliases: ["Novartis Healthcare", "Novartis Corporate Center"]
+    category: "GCC"
+  - name: "AstraZeneca"
+    aliases: ["AstraZeneca India Global Innovation Center"]
+    category: "GCC"
+  - name: "Optum"
+    aliases: ["UnitedHealth Group", "Optum Global Solutions"]
+    category: "GCC"
+
+  # Automotive & Industrial Tech GCCs
+  - name: "Mercedes-Benz R&D India"
+    aliases: ["MBRDI", "Daimler India"]
+    category: "GCC"
+  - name: "Bosch"
+    aliases: ["Robert Bosch Engineering and Business Solutions", "BGSW"]
+    category: "MNC"
+  - name: "Continental"
+    aliases: ["Continental Automotive India"]
+    category: "GCC"
+  - name: "Boeing"
+    aliases: ["Boeing India Engineering & Technology Center", "BIETC"]
+    category: "GCC"
+  - name: "Airbus"
+    aliases: ["Airbus India"]
+    category: "GCC"
+  - name: "Siemens"
+    aliases: ["Siemens Technology and Services"]
+    category: "MNC"
+  - name: "ABB"
+    aliases: ["ABB Global Industries and Services"]
+    category: "MNC"
+  - name: "Philips"
+    aliases: ["Philips Innovation Campus Bengaluru"]
+    category: "MNC"

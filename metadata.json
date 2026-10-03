@@ -1,0 +1,8 @@
+{
+  "name": "Suhani Gupta",
+  "description": "Private, self-hosted job radar with modular ATS sourcing, strict multi-user data isolation, and human-in-the-loop evaluation.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

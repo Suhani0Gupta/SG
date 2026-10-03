@@ -1,0 +1,128 @@
+{
+  "jobs": [
+    {
+      "id": 4120934,
+      "internal_job_id": 89214,
+      "title": "Senior Backend Engineer - Core Platform",
+      "updated_at": "2026-09-15T10:30:00Z",
+      "requisition_id": "REQ-BLR-001",
+      "absolute_url": "https://boards.greenhouse.io/canonical/jobs/4120934",
+      "metadata": [
+        {
+          "id": 101,
+          "name": "Salary Range",
+          "value": "30 - 45 LPA"
+        }
+      ],
+      "location": {
+        "name": "Bengaluru, Karnataka, India"
+      },
+      "offices": [
+        {
+          "id": 55,
+          "name": "Bengaluru Innovation Center",
+          "location": "Bengaluru, India"
+        }
+      ],
+      "departments": [
+        {
+          "id": 12,
+          "name": "Engineering"
+        }
+      ],
+      "content": "&lt;h3&gt;About the Role&lt;/h3&gt;&lt;p&gt;We are seeking a Senior Backend Engineer with 4-6 years of experience building highly scalable distributed systems using Python and PostgreSQL. You will design, develop, and maintain mission-critical APIs.&lt;/p&gt;&lt;h4&gt;Requirements&lt;/h4&gt;&lt;ul&gt;&lt;li&gt;4+ years experience in Python and microservices&lt;/li&gt;&lt;li&gt;Strong foundation in data structures, algorithms, and SQL&lt;/li&gt;&lt;li&gt;Experience with Kubernetes and CI/CD pipelines&lt;/li&gt;&lt;/ul&gt;&lt;h4&gt;Perks&lt;/h4&gt;&lt;p&gt;Competitive salary, RSUs, comprehensive medical insurance, annual wellness bonus.&lt;/p&gt;"
+    },
+    {
+      "id": 4120935,
+      "internal_job_id": 89215,
+      "title": "Full Stack Developer (React / Python)",
+      "updated_at": "2026-09-18T14:15:00Z",
+      "requisition_id": "REQ-REM-002",
+      "absolute_url": "https://boards.greenhouse.io/canonical/jobs/4120935",
+      "metadata": [],
+      "location": {
+        "name": "India (Remote)"
+      },
+      "offices": [
+        {
+          "id": 56,
+          "name": "Remote - India",
+          "location": "Remote, India"
+        }
+      ],
+      "departments": [
+        {
+          "id": 12,
+          "name": "Engineering"
+        }
+      ],
+      "content": "&lt;p&gt;Looking for a Full Stack Developer with 3 to 5 years of experience in React, TypeScript, and Python REST APIs. Flexible working hours and 100% remote within India.&lt;/p&gt;"
+    },
+    {
+      "id": 4120936,
+      "internal_job_id": 89216,
+      "title": "Technical Solutions Specialist",
+      "updated_at": "2026-09-20T08:00:00Z",
+      "requisition_id": "REQ-BLR-003",
+      "absolute_url": "https://boards.greenhouse.io/canonical/jobs/4120936",
+      "metadata": [],
+      "location": {
+        "name": "Bangalore, India"
+      },
+      "offices": [],
+      "departments": [
+        {
+          "id": 14,
+          "name": "Customer Support"
+        }
+      ],
+      "content": "&lt;p&gt;Requires rotational night shift and 6 days working schedule. Walk-in interview this Saturday. Urgent requirement for immediate joiners.&lt;/p&gt;"
+    },
+    {
+      "id": 4120937,
+      "internal_job_id": 89217,
+      "title": "Principal Architect",
+      "updated_at": "2026-09-22T09:00:00Z",
+      "requisition_id": "REQ-LON-004",
+      "absolute_url": "https://boards.greenhouse.io/canonical/jobs/4120937",
+      "metadata": [],
+      "location": {
+        "name": "London, United Kingdom"
+      },
+      "offices": [
+        {
+          "id": 99,
+          "name": "London HQ",
+          "location": "London, UK"
+        }
+      ],
+      "departments": [
+        {
+          "id": 10,
+          "name": "Architecture"
+        }
+      ],
+      "content": "&lt;p&gt;Overseas position based strictly in Central London office. 12+ years experience required.&lt;/p&gt;"
+    },
+    {
+      "id": 4120938,
+      "internal_job_id": 89218,
+      "title": "Junior Associate Software Engineer",
+      "updated_at": "2026-09-25T11:00:00Z",
+      "requisition_id": "REQ-BLR-005",
+      "absolute_url": "https://boards.greenhouse.io/canonical/jobs/4120938",
+      "metadata": [],
+      "location": {
+        "name": "Bengaluru"
+      },
+      "offices": [],
+      "departments": [
+        {
+          "id": 12,
+          "name": "Engineering"
+        }
+      ],
+      "content": "&lt;p&gt;Looking for freshers or 0-1 years of experience in coding. Unclear exact years of experience mentioned in primary JD, requires assessment.&lt;/p&gt;"
+    }
+  ]
+}

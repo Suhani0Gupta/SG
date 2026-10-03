@@ -1,0 +1,23 @@
+# Core Web Framework & Schedulers
+fastapi>=0.110.0
+uvicorn[standard]>=0.28.0
+pydantic>=2.6.0
+sqlalchemy>=2.0.28
+apscheduler>=3.10.4
+
+# Security, Passwords & Encryption
+argon2-cffi>=23.1.0
+cryptography>=42.0.5
+python-jose[cryptography]>=3.3.0
+python-multipart>=0.0.9
+
+# Parsing & Sourcing
+pyyaml>=6.0.1
+httpx>=0.27.0
+beautifulsoup4>=4.12.3
+
+# LLM APIs
+anthropic>=0.18.0
+
+# Optional Streamlit for sourcing workbench
+streamlit>=1.32.0

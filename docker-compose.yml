@@ -1,0 +1,41 @@
+version: "3.8"
+
+services:
+  job-radar:
+    build: .
+    container_name: job_radar_app
+    restart: unless-stopped
+    ports:
+      - "3000:8000"
+    volumes:
+      - ./data:/app/data
+      - ./config.yaml:/app/config.yaml:ro
+      - ./preferences.yaml:/app/preferences.yaml:ro
+      - ./companies.yaml:/app/companies.yaml:ro
+      - ./mnc_gcc_allowlist.yaml:/app/mnc_gcc_allowlist.yaml:ro
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=sqlite:////app/data/job_radar.db
+      - ENVIRONMENT=production
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # Optional Streamlit sourcing inspector workbench
+  job-radar-sourcing-studio:
+    build: .
+    container_name: job_radar_sourcing_studio
+    restart: unless-stopped
+    command: ["streamlit", "run", "app/streamlit_app.py", "--server.port=8501", "--server.address=0.0.0.0"]
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./data:/app/data
+      - ./companies.yaml:/app/companies.yaml:ro
+      - ./mnc_gcc_allowlist.yaml:/app/mnc_gcc_allowlist.yaml:ro
+    env_file:
+      - .env

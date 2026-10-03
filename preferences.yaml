@@ -1,0 +1,67 @@
+# User Preferences: Talent Acquisition Manager (Bengaluru)
+# In accordance with Rule 2, configured specifically for Talent Acquisition / Recruiter roles.
+
+target_titles:
+  - "Talent Acquisition Manager"
+  - "Senior Talent Acquisition Specialist"
+  - "Lead Technical Recruiter"
+  - "Talent Acquisition Lead"
+  - "Recruiting Manager"
+  - "Head of Talent Acquisition"
+  - "Senior Recruiter"
+  - "Talent Partner"
+  - "HR Manager - Talent Acquisition"
+
+title_keywords:
+  - "Talent Acquisition"
+  - "Recruiter"
+  - "Recruiting"
+  - "Talent"
+  - "TA Manager"
+  - "Talent Partner"
+  - "Hiring Manager"
+  - "People & Culture"
+
+experience_range:
+  min_years: 4
+  max_years: 8
+
+location:
+  primary:
+    - "Bengaluru"
+    - "Bangalore"
+  allow_remote_india: true
+  allow_hybrid: true
+  allow_relocation: false
+
+salary_floor_lpa: 18.0   # Floor in Lakhs Per Annum. Unknown salary is neutral (never rejected).
+
+mnc_weight: 20          # 0 to 30 bonus points for MNC / GCC / Global Tech (never a hard filter)
+
+work_setup: "hybrid"    # Options: hybrid, remote, any, onsite
+
+must_have_keywords:
+  - "Talent Acquisition"
+  - "Sourcing"
+  - "Technical Recruiting"
+  - "Stakeholder Management"
+  - "ATS"
+  - "Greenhouse"
+  - "Full Lifecycle Recruitment"
+  - "Hiring"
+  - "Talent Pipeline"
+
+avoid_keywords:
+  - "6 days working"
+  - "six days"
+  - "rotational night shift"
+  - "walk-in"
+  - "bond period"
+  - "pay to apply"
+  - "commission only"
+  - "unpaid internship"
+  - "sales quota"
+
+blocklist_companies:
+  - "ExampleSpamRecruitmentAgency"
+  - "ShadyConsultingFirm"

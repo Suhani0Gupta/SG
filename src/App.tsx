@@ -2,7 +2,7 @@ import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } f
 import { Search, RefreshCw, Bookmark, X, ExternalLink, MapPin, Building2, AlertTriangle, CheckCircle2, HelpCircle, Undo2 } from 'lucide-react';
 import { loadJobs, loadPrefs, loadHealth, runScan, savePrefs, getSettings, patchSettings, notifyTest, checkCompany, lastScanTime } from './engine';
 
-const APP_NAME = 'Made with care'; // <- change your app's name here
+const APP_NAME = 'Suhani Gupta'; // <- change your app's name here
 
 type Job = {
   title: string; company: string; location_normalized?: string; canonical_url: string;

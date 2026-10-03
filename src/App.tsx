@@ -10,7 +10,7 @@ type Job = {
   unknown_fields: string[]; status: string; why_apply?: string; is_bengaluru?: boolean; is_remote?: boolean; first_seen?: string;
 };
 type Prefs = Record<string, any>;
-type Tab = 'jobs' | 'review' | 'saved' | 'applied' | 'skipped' | 'prefs' | 'cv' | 'linkedin' | 'settings' | 'check' | 'sources';
+type Tab = 'jobs' | 'review' | 'saved' | 'applied' | 'skipped' | 'prefs' | 'cv' | 'linkedin' | 'settings' | 'alerts' | 'check' | 'sources';
 type Profile = { name: string; email: string; phone: string; linkedin: string; notice: string; ctc: string; note: string; resume: string };
 type Cv = { name: string; data: string } | null;
 const emptyProfile: Profile = { name: '', email: '', phone: '', linkedin: '', notice: '', ctc: '', resume: '', note: 'Hi {company} team, I am excited about the {role} role. [Add one real result you delivered, such as a hiring number or time-to-fill.] [Say in one line why this company.]' };
@@ -204,7 +204,7 @@ export default function App() {
     ['saved', 'Saved', count(j => marks[j.canonical_url] === 'saved')],
     ['applied', 'Applied', count(j => marks[j.canonical_url] === 'applied')],
     ['skipped', 'Skipped', count(j => marks[j.canonical_url] === 'skipped')],
-    ['check', 'Check a job'], ['linkedin', 'LinkedIn'], ['cv', 'CV & details'], ['prefs', 'My preferences'], ['sources', 'Sources'],
+    ['check', 'Check a job'], ['linkedin', 'LinkedIn'], ['cv', 'CV & details'], ['prefs', 'My preferences'], ['alerts', 'WhatsApp alerts'], ['sources', 'Sources'],
   ];
   const isList = ['jobs', 'review', 'saved', 'applied', 'skipped'].includes(tab);
   const chip = (on: boolean) => `rounded-full border px-3 py-1 text-xs font-semibold ${on ? 'border-bloom bg-bloom text-white' : 'border-line bg-card text-muted hover:border-bloom'}`;
@@ -235,6 +235,7 @@ export default function App() {
       <main className={`mx-auto max-w-7xl px-5 pt-6 ${isList ? 'pb-6' : 'pb-48'}`}>
         {msg && <div className="fade mb-5 flex justify-between gap-3 rounded-xl border border-line bg-card px-4 py-3 text-sm"><span>{msg}</span><button onClick={() => setMsg('')} aria-label="Dismiss"><X size={16} /></button></div>}
         {tab === 'prefs' && <div className="fade"><PrefsView prefs={prefs} setPrefs={setPrefs} toast={showToast} /></div>}
+        {tab === 'alerts' && <div className="fade"><AlertsView toast={showToast} /></div>}
         {tab === 'check' && <div className="fade"><CheckJob profile={profile} extra={prefs?.must_have_keywords || []} /></div>}
         {tab === 'linkedin' && <div className="fade"><LinkedInView /></div>}
         {tab === 'cv' && <div className="fade"><CvView cv={cv} upload={uploadCv} remove={removeCv} profile={profile} setProfile={setProfile} toast={showToast} /></div>}
@@ -543,13 +544,14 @@ function GetStarted({ cv, profile, go, hide }: { cv: Cv; profile: Profile; go: (
     ['Add your CV', !!cv, 'cv'],
     ['Add your name and details', !!profile.name, 'cv'],
     ['Check your job titles and keywords', localStorage.getItem('jr_prefs') !== null, 'prefs'],
+    ['Set up WhatsApp alerts (optional)', getSettings().whatsappKeySet, 'alerts'],
   ];
   return (
     <div className="fade mb-6 rounded-2xl border border-line bg-card p-5">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h2 className="font-display text-xl font-extrabold">Start here ({steps.filter(x => x[1]).length} of 3 done)</h2>
-          <p className="text-sm text-muted">Three quick steps and the site is ready. Everything is saved in this browser only.</p>
+          <h2 className="font-display text-xl font-extrabold">Start here ({steps.filter(x => x[1]).length} of 4 done)</h2>
+          <p className="text-sm text-muted">Four quick steps and the site is ready. Everything is saved in this browser only.</p>
         </div>
         <button onClick={hide} className="text-sm text-muted hover:text-white">Hide</button>
       </div>
@@ -558,6 +560,42 @@ function GetStarted({ cv, profile, go, hide }: { cv: Cv; profile: Profile; go: (
           <li key={label}><button onClick={() => go(t)} className="flex w-full items-center gap-2 rounded-xl border border-line px-3 py-2 text-left text-sm hover:bg-card-hover"><span className={ok ? 'text-good' : 'text-muted'}>{ok ? '✓' : '○'}</span>{label}</button></li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+function AlertsView({ toast }: { toast: (s: string) => void }) {
+  const init = getSettings();
+  const [phone, setPhone] = useState(init.whatsappPhone || '');
+  const [key, setKey] = useState('');
+  const [saved, setSaved] = useState(init.whatsappKeySet);
+  const field = 'mt-1 w-full rounded-xl border border-line bg-card px-3 py-2.5 transition focus:border-ice';
+  const save = () => { patchSettings({ whatsappPhone: phone, whatsappKey: key }); setKey(''); setSaved(getSettings().whatsappKeySet); toast('WhatsApp details saved.'); };
+  const test = async () => { const ok = await notifyTest(); toast(ok ? 'Test message sent. Check WhatsApp (it can take a minute).' : 'Not sent. Save your number and key first.'); };
+  return (
+    <div data-reveal className="max-w-3xl rounded-2xl border border-line bg-card p-6">
+      <h2 className="font-display text-2xl font-extrabold">WhatsApp alerts</h2>
+      <p className="mt-1 text-sm text-muted">There are two ways to get job alerts on WhatsApp. The first needs no setup.</p>
+      <h3 className="mt-4 font-display font-bold">Option 1: One tap, no setup</h3>
+      <p className="text-sm text-muted">After a scan finds new jobs, a button appears on the Best matches page. Tap it and WhatsApp opens with the jobs ready to send to yourself. This uses WhatsApp's own link feature and shares nothing with anyone else.</p>
+      <h3 className="mt-4 font-display font-bold">Option 2: Automatic messages (free, set up once)</h3>
+      <ol className="mt-1 list-decimal space-y-1 pl-5 text-sm text-muted">
+        <li>On your phone, open <b>callmebot.com/blog/free-api-whatsapp-messages</b> and save the WhatsApp number shown there as a contact.</li>
+        <li>In WhatsApp, send that contact this message: <b>I allow callmebot to send me messages</b></li>
+        <li>Wait for its reply. It contains your key.</li>
+        <li>Enter your number (country code first, no plus sign, for example 919876543210) and the key below, then press Save.</li>
+        <li>Press <b>Send a test message</b> to check that it works.</li>
+      </ol>
+      <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        <label className="block text-sm font-semibold">Your WhatsApp number<input className={field} value={phone} placeholder="919876543210" onChange={e => setPhone(e.target.value)} /></label>
+        <label className="block text-sm font-semibold">CallMeBot key {saved && <span className="font-normal text-good">(saved)</span>}
+          <input type="password" className={field} value={key} placeholder={saved ? 'Leave blank to keep the saved key' : 'Paste key'} onChange={e => setKey(e.target.value)} autoComplete="off" /></label>
+      </div>
+      <div className="mt-4 flex flex-wrap gap-3">
+        <button onClick={save} className="rounded-full bg-bloom px-5 py-2.5 text-sm font-semibold text-white hover:bg-bloom-hover">Save</button>
+        <button onClick={test} className="rounded-full border border-ice px-5 py-2.5 text-sm font-semibold text-ice hover:bg-bloom-soft">Send a test message</button>
+      </div>
+      <p className="mt-3 text-xs text-muted">The site cannot confirm that a message arrived, so check WhatsApp after pressing the test button. Option 2 uses CallMeBot, a free service made for personal use. It is not run by WhatsApp, and your number, key and the job titles pass through it. Use Option 1 if you would rather not share that.</p>
     </div>
   );
 }

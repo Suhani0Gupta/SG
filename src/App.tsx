@@ -108,7 +108,7 @@ export default function App() {
       const r = await runScan();
       setDigest(r.digest || ''); if (r.digest) browserNotify(r.digest);
       if (r.removed?.length) setMsg(`Removed ${r.removed.length} company name(s) that have no job board: ${r.removed.join(', ')}.`);
-      showToast(r.busy ? 'A scan is already running. Try again in a minute.' : r.totalRawFetched === 0 ? 'Scan found 0 jobs. Check your internet connection and the Sources tab.' : `Scan done: ${r.totalJobsInDatabase} matching jobs (${r.bengaluruJobs} in Bengaluru) from ${r.totalRawFetched} openings checked.`);
+      showToast(r.busy ? 'A scan is already running. Try again in a minute.' : r.totalRawFetched === 0 ? 'Scan found 0 jobs. Check your internet connection and the Sources tab.' : `Scan done: ${r.totalJobsInDatabase} matching jobs (${r.bengaluruJobs} in Bengaluru) from ${r.totalRawFetched} openings checked. ${r.sourcesWorked} of ${r.companiesScanned} company sites responded.`);
       await refresh();
     } catch { setMsg('The scan failed. Check the terminal for errors.'); }
     setScanning(false);

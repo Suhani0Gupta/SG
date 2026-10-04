@@ -101,19 +101,49 @@ async function send(text: string): Promise<boolean> {
 export const waLink = (text: string) => `https://wa.me/${settings().whatsappPhone || ''}?text=${encodeURIComponent(text)}`;
 export const notifyTest = () => send('Test message: your job site is connected to WhatsApp.');
 
+// ---------- More live sources: Lever and Ashby public job boards ----------
+const LEVER_COMPANIES = ['spotify', 'palantir', 'paytm', 'cred', 'meesho'];
+const ASHBY_COMPANIES = ['notion', 'ramp', 'openai'];
+type Board = { ok: boolean; list: any[]; error?: string };
+const mk = (title: any, loc: string, url: any, content: string, remote = false) => ({
+  title: String(title || '').trim(), location_normalized: loc || 'Location not stated', canonical_url: String(url || '').split('?')[0],
+  content_text: content.slice(0, 6000), is_bengaluru: /bengaluru|bangalore/i.test(loc), is_remote: remote || /remote/i.test(loc),
+});
+async function fetchLever(slug: string): Promise<Board> {
+  try {
+    const r = await fetch(`https://api.lever.co/v0/postings/${slug}?mode=json`);
+    if (!r.ok) return { ok: false, list: [], error: r.status === 404 ? 'Job board not found' : `Error ${r.status}` };
+    const d = await r.json();
+    return { ok: true, list: (Array.isArray(d) ? d : []).map((j: any) => mk(j.text, j.categories?.location || (j.categories?.allLocations || []).join(', '), j.hostedUrl, `${j.descriptionPlain || ''}\n${j.additionalPlain || ''}`, /remote/i.test(j.workplaceType || ''))).filter((j: any) => j.canonical_url) };
+  } catch { return { ok: false, list: [], error: 'Blocked by the browser or no internet' }; }
+}
+async function fetchAshby(slug: string): Promise<Board> {
+  try {
+    const r = await fetch(`https://api.ashbyhq.com/posting-api/job-board/${slug}`);
+    if (!r.ok) return { ok: false, list: [], error: r.status === 404 ? 'Job board not found' : `Error ${r.status}` };
+    const d = await r.json();
+    return { ok: true, list: (d.jobs || []).filter((j: any) => j.isListed !== false).map((j: any) => mk(j.title, j.location || '', j.jobUrl, j.descriptionPlain || '', !!j.isRemote)).filter((j: any) => j.canonical_url) };
+  } catch { return { ok: false, list: [], error: 'Blocked by the browser or no internet' }; }
+}
+
 let scanning = false;
 export async function runScan() {
-  if (scanning) return { busy: true, companiesScanned: 0, totalRawFetched: 0, totalJobsInDatabase: 0, bengaluruJobs: 0, notified: false, removed: [] as string[], digest: '' };
+  if (scanning) return { busy: true, companiesScanned: 0, totalRawFetched: 0, totalJobsInDatabase: 0, bengaluruJobs: 0, notified: false, removed: [] as string[], digest: '', sourcesWorked: 0 };
   scanning = true;
   try {
     const prefs = loadPrefs(); const prev = loadJobs(); const prevMap = new Map(prev.map(j => [j.canonical_url, j]));
     const health = loadHealth(); const now = new Date().toISOString();
     const companies = Array.from(new Set([...DEFAULT_COMPANIES, ...((prefs.extra_companies || []) as string[]).map(x => String(x).toLowerCase().trim().replace(/[^a-z0-9_-]/g, '')).filter(Boolean)]));
     const kept: any[] = []; const seen = new Set<string>(); let fetched = 0; const removed: string[] = [];
-    const boards = await Promise.all(companies.map(c => fetchBoard(c)));
-    for (let ci = 0; ci < companies.length; ci++) {
-      const c = companies[ci]; const r = boards[ci]; const key = `greenhouse:${c}`;
-      if (!r.ok) { health[key] = { source: 'greenhouse', company: c, status: 'error', error: r.error, lastRun: now, jobsFound: 0 }; kept.push(...prev.filter(j => j.company_slug === c)); continue; }
+    const sources: { kind: string; slug: string }[] = [
+      ...companies.map(slug => ({ kind: 'greenhouse', slug })),
+      ...LEVER_COMPANIES.map(slug => ({ kind: 'lever', slug })),
+      ...ASHBY_COMPANIES.map(slug => ({ kind: 'ashby', slug })),
+    ];
+    const boards: Board[] = await Promise.all(sources.map(s => s.kind === 'lever' ? fetchLever(s.slug) : s.kind === 'ashby' ? fetchAshby(s.slug) : fetchBoard(s.slug)));
+    for (let ci = 0; ci < sources.length; ci++) {
+      const { kind, slug: c } = sources[ci]; const r = boards[ci]; const key = `${kind}:${c}`;
+      if (!r.ok) { health[key] = { source: kind, company: c, status: 'error', error: r.error, lastRun: now, jobsFound: 0 }; kept.push(...prev.filter(j => j.company_slug === c)); continue; }
       fetched += r.list.length; let shown = 0; const name = c.charAt(0).toUpperCase() + c.slice(1);
       const passing: any[] = [];
       for (const j of r.list) {
@@ -122,10 +152,10 @@ export async function runScan() {
         if (!passes(job, prefs) || seen.has(dk)) continue;
         seen.add(dk); passing.push(job);
       }
-      const contents = await Promise.all(passing.map(j => fetchContent(c, j.id)));
+      const contents = await Promise.all(passing.map(j => j.content_text !== undefined ? j.content_text : fetchContent(c, j.id)));
       passing.forEach((job, k) => kept.push({ ...score({ ...job, content_text: contents[k] }, prefs), company_slug: c, first_seen: prevMap.get(job.canonical_url)?.first_seen || now }));
       shown = passing.length;
-      health[key] = { source: 'greenhouse', company: c, status: 'healthy', lastRun: now, jobsFound: shown, openings: r.list.length };
+      health[key] = { source: kind, company: c, status: 'healthy', lastRun: now, jobsFound: shown, openings: r.list.length };
     }
     kept.sort((a, b) => b.score - a.score);
     write('jr_jobs', kept); write('jr_health', health); write('jr_last_scan', Date.now());
@@ -133,7 +163,7 @@ export async function runScan() {
     const digest = fresh.length ? `${fresh.length} new job${fresh.length > 1 ? 's' : ''} matching your search:\n\n` + fresh.map(j => `• ${j.title} at ${j.company} (${j.score}/100)\n${j.canonical_url}`).join('\n\n') : '';
     let notified = false;
     if (digest) notified = await send(digest);
-    return { busy: false, removed, digest, companiesScanned: companies.length, totalRawFetched: fetched, totalJobsInDatabase: kept.length, bengaluruJobs: kept.filter(j => j.is_bengaluru).length, notified };
+    return { busy: false, removed, digest, companiesScanned: sources.length, sourcesWorked: boards.filter(b => b.ok).length, totalRawFetched: fetched, totalJobsInDatabase: kept.length, bengaluruJobs: kept.filter(j => j.is_bengaluru).length, notified };
   } finally { scanning = false; }
 }
 

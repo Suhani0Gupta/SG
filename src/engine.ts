@@ -3,7 +3,7 @@ export type Prefs = Record<string, any>;
 const read = (k: string, d: any) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } };
 const write = (k: string, v: any): boolean => { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } };
 
-export const DEFAULT_COMPANIES = ['asana', 'lyft', 'doordash', 'reddit', 'discord', 'duolingo', 'figma', 'hubspot', 'newrelic', 'pagerduty', 'amplitude', 'grammarly', 'gusto', 'carta', 'brex', 'plaid', 'affirm', 'nerdwallet', 'squarespace', 'zendesk', 'postman', 'razorpay', 'browserstack', 'druva', 'stripe', 'twilio', 'datadog', 'elastic', 'gitlab', 'canonical', 'airbnb', 'okta', 'rubrik', 'cloudflare', 'mongodb', 'pinterest', 'dropbox', 'databricks', 'coinbase'];
+export const DEFAULT_COMPANIES = ['sprinklr', 'chargebee', 'thoughtspot', 'coursera', 'udemy', 'mixpanel', 'zuora', 'flexport', 'robinhood', 'toast', 'unity', 'roblox', 'asana', 'lyft', 'doordash', 'reddit', 'discord', 'duolingo', 'figma', 'hubspot', 'newrelic', 'pagerduty', 'amplitude', 'grammarly', 'gusto', 'carta', 'brex', 'plaid', 'affirm', 'nerdwallet', 'squarespace', 'postman', 'razorpay', 'druva', 'stripe', 'twilio', 'datadog', 'elastic', 'gitlab', 'canonical', 'airbnb', 'okta', 'rubrik', 'cloudflare', 'mongodb', 'pinterest', 'dropbox', 'databricks', 'coinbase'];
 export const DEFAULT_PREFS: Prefs = {
   version: 3,
   target_titles: ['Talent Acquisition Manager', 'Senior Talent Acquisition Partner', 'Talent Acquisition Lead', 'Recruitment Manager', 'Head of Talent Acquisition', 'Senior Recruiter'],
@@ -75,12 +75,22 @@ function score(job: any, prefs: any) {
   const exact = (prefs.target_titles || []).some((t: string) => t && has(title, t));
   s += exact ? 30 : 20; matched.push(exact ? 'Title matches your target roles (+30)' : 'Title is in the recruiting family (+20)');
   if (job.is_bengaluru) { s += 20; matched.push('Bengaluru office (+20)'); } else if (INDIA.test(job.location_normalized.toLowerCase())) { s += job.is_remote ? 10 : 8; matched.push(job.is_remote ? 'Remote in India (+10)' : 'Another city in India (+8)'); } else { unknown.push('Location is outside India. Check that you can work from India.'); }
-  const mnc = Number(prefs.mnc_weight ?? 20); s += mnc; matched.push(`MNC/Tier-1 allowlist match for ${job.company} (+${mnc})`);
+  const mnc = Number(prefs.mnc_weight ?? 20);
+  if (!job.via) { s += mnc; matched.push(`MNC/Tier-1 allowlist match for ${job.company} (+${mnc})`); } else unknown.push(`Company type not checked (found through ${job.via})`);
   if (/\b(manager|lead|head|director|principal)\b/.test(title)) { s += 10; matched.push('Senior title (+10)'); }
   const hits = (prefs.must_have_keywords || []).filter((k: string) => k && has(text, k));
   if (hits.length) { const pts = Math.min(20, hits.length * 5); s += pts; matched.push(`Keywords: ${hits.join(', ')} (+${pts})`); }
   if (text.includes('hybrid')) { s += 5; matched.push('Hybrid mentioned (+5)'); }
   for (const a of prefs.avoid_keywords || []) if (a && has(text, a)) { s -= 10; flags.push(`Avoid keyword: "${a}" (-10)`); }
+  const co = String(job.company || '').toLowerCase();
+  if (WELL_REGARDED.some(n => hasTerm(co, n))) { s += 8; matched.push('Employer appears on a published best-workplace list (+8)'); }
+  const perks = PERKS.filter(k => hasTerm(text, k)); if (perks.length) { const pts = Math.min(8, perks.length * 2); s += pts; matched.push(`Perks mentioned: ${perks.slice(0, 4).join(', ')} (+${pts})`); }
+  const culture = CULTURE.filter(k => hasTerm(text, k)); if (culture.length) { const pts = Math.min(6, culture.length * 2); s += pts; matched.push(`Healthy-workplace words: ${culture.slice(0, 4).join(', ')} (+${pts})`); }
+  let resume = ''; try { resume = String(JSON.parse(localStorage.getItem('jr_profile') || '{}').resume || ''); } catch {}
+  if (resume.trim()) {
+    const terms = Array.from(new Set([...TA_TERMS, ...(prefs.must_have_keywords || [])].filter((t: string) => t && hasTerm(text, t))));
+    if (terms.length) { const got = terms.filter(t => hasTerm(resume, t)).length; const pts = Math.round((got / terms.length) * 15); s += pts; matched.push(`CV match: ${got} of ${terms.length} key words (+${pts})`); }
+  }
   const yrs = /(\d{1,2})\s*\+?\s*(years|yrs)/.test(text);
   if (!yrs) unknown.push('Years of experience not stated');
   if (!/lpa|salary|compensation|ctc/.test(text)) unknown.push('Salary not stated');
@@ -102,7 +112,7 @@ export const waLink = (text: string) => `https://wa.me/${settings().whatsappPhon
 export const notifyTest = () => send('Test message: your job site is connected to WhatsApp.');
 
 // ---------- More live sources: Lever and Ashby public job boards ----------
-const LEVER_COMPANIES = ['spotify', 'palantir', 'paytm', 'cred', 'meesho'];
+const LEVER_COMPANIES = ['clevertap', 'spotify', 'palantir', 'paytm', 'cred', 'meesho'];
 const ASHBY_COMPANIES = ['notion', 'ramp', 'openai'];
 type Board = { ok: boolean; list: any[]; error?: string };
 const mk = (title: any, loc: string, url: any, content: string, remote = false) => ({
@@ -126,6 +136,43 @@ async function fetchAshby(slug: string): Promise<Board> {
   } catch { return { ok: false, list: [], error: 'Blocked by the browser or no internet' }; }
 }
 
+// Arbeitnow: free public job board API (no key). Mostly Germany and Europe, plus remote roles.
+async function fetchArbeitnow(): Promise<Board> {
+  try {
+    const pages = await Promise.all([1, 2, 3].map(p => fetch(`https://www.arbeitnow.com/api/job-board-api?page=${p}`).then(r => (r.ok ? r.json() : { data: [] })).catch(() => ({ data: [] }))));
+    const rows = pages.flatMap((d: any) => d.data || []);
+    if (!rows.length) return { ok: false, list: [], error: 'No response' };
+    return { ok: true, list: rows.map((j: any) => ({ ...mk(j.title, j.location || '', j.url, stripHtml(j.description || ''), !!j.remote), company: j.company_name, via: 'Arbeitnow' })).filter((j: any) => j.canonical_url) };
+  } catch { return { ok: false, list: [], error: 'Blocked by the browser or no internet' }; }
+}
+
+// Adzuna (optional): each person uses their own free key, stored only in this browser
+export const getAdzuna = () => read('jr_adzuna', { id: '', key: '' }) as { id: string; key: string };
+export const saveAdzuna = (id: string, key: string) => write('jr_adzuna', { id: id.trim(), key: key.trim() });
+async function adzunaSearch(what: string, where: string): Promise<any[]> {
+  const a = getAdzuna();
+  const u = `https://api.adzuna.com/v1/api/jobs/in/search/1?app_id=${encodeURIComponent(a.id)}&app_key=${encodeURIComponent(a.key)}&results_per_page=50&sort_by=date&what=${encodeURIComponent(what)}${where ? `&where=${encodeURIComponent(where)}` : ''}`;
+  const r = await fetch(u);
+  if (!r.ok) throw new Error(String(r.status));
+  return (await r.json()).results || [];
+}
+export async function testAdzuna(): Promise<string> {
+  const a = getAdzuna();
+  if (!a.id || !a.key) return 'Add your Application ID and key first.';
+  try { const rows = await adzunaSearch('talent acquisition', 'Bengaluru'); return `Works. Found ${rows.length} jobs on the first page.`; }
+  catch (err: any) { return /^\d+$/.test(String(err?.message)) ? `Adzuna refused the request (error ${err.message}). Check your ID and key.` : 'The browser blocked the request, or you are offline.'; }
+}
+async function fetchAdzuna(): Promise<Board> {
+  const a = getAdzuna();
+  if (!a.id || !a.key) return { ok: false, list: [], error: 'No key' };
+  const qs: [string, string][] = [['talent acquisition', 'Bengaluru'], ['recruitment manager', 'Bengaluru'], ['technical recruiter', 'Bengaluru'], ['talent partner', 'Bengaluru'], ['talent acquisition', ''], ['recruiter', '']];
+  try {
+    const rows = (await Promise.all(qs.map(([w, l]) => adzunaSearch(w, l).catch(() => [] as any[])))).flat();
+    if (!rows.length) return { ok: false, list: [], error: 'No results, or blocked by the browser' };
+    return { ok: true, list: rows.map((j: any) => ({ ...mk(j.title, `${j.location?.display_name || 'India'}, India`, j.redirect_url, stripHtml(j.description || '')), canonical_url: String(j.redirect_url || ''), company: j.company?.display_name || 'Unknown company', via: 'Adzuna' })).filter((j: any) => j.canonical_url) };
+  } catch { return { ok: false, list: [], error: 'Blocked by the browser or no internet' }; }
+}
+
 let scanning = false;
 export async function runScan() {
   if (scanning) return { busy: true, companiesScanned: 0, totalRawFetched: 0, totalJobsInDatabase: 0, bengaluruJobs: 0, notified: false, removed: [] as string[], digest: '', sourcesWorked: 0 };
@@ -135,20 +182,26 @@ export async function runScan() {
     const health = loadHealth(); const now = new Date().toISOString();
     const companies = Array.from(new Set([...DEFAULT_COMPANIES, ...((prefs.extra_companies || []) as string[]).map(x => String(x).toLowerCase().trim().replace(/[^a-z0-9_-]/g, '')).filter(Boolean)]));
     const kept: any[] = []; const seen = new Set<string>(); let fetched = 0; const removed: string[] = [];
-    const sources: { kind: string; slug: string }[] = [
+    const dead: Record<string, number> = read('jr_dead', {});
+    const allSources: { kind: string; slug: string }[] = [
       ...companies.map(slug => ({ kind: 'greenhouse', slug })),
       ...LEVER_COMPANIES.map(slug => ({ kind: 'lever', slug })),
       ...ASHBY_COMPANIES.map(slug => ({ kind: 'ashby', slug })),
+      { kind: 'arbeitnow', slug: 'arbeitnow' },
+      ...(getAdzuna().key ? [{ kind: 'adzuna', slug: 'adzuna' }] : []),
     ];
-    const boards: Board[] = await Promise.all(sources.map(s => s.kind === 'lever' ? fetchLever(s.slug) : s.kind === 'ashby' ? fetchAshby(s.slug) : fetchBoard(s.slug)));
+    const sources = allSources.filter(s => !(dead[`${s.kind}:${s.slug}`] > Date.now() - 30 * 86400000));
+    const boards: Board[] = await Promise.all(sources.map(s => s.kind === 'lever' ? fetchLever(s.slug) : s.kind === 'ashby' ? fetchAshby(s.slug) : s.kind === 'arbeitnow' ? fetchArbeitnow() : s.kind === 'adzuna' ? fetchAdzuna() : fetchBoard(s.slug)));
+    sources.forEach((s, i) => { if (!boards[i].ok && boards[i].error === 'Job board not found') dead[`${s.kind}:${s.slug}`] = Date.now(); });
+    write('jr_dead', dead);
     for (let ci = 0; ci < sources.length; ci++) {
       const { kind, slug: c } = sources[ci]; const r = boards[ci]; const key = `${kind}:${c}`;
       if (!r.ok) { health[key] = { source: kind, company: c, status: 'error', error: r.error, lastRun: now, jobsFound: 0 }; kept.push(...prev.filter(j => j.company_slug === c)); continue; }
       fetched += r.list.length; let shown = 0; const name = c.charAt(0).toUpperCase() + c.slice(1);
       const passing: any[] = [];
       for (const j of r.list) {
-        const job = { ...j, company: name };
-        const dk = `${c}|${job.title}|${job.location_normalized}`.toLowerCase();
+        const job = { ...j, company: j.company || name };
+        const dk = `${job.company}|${job.title}|${job.location_normalized}`.toLowerCase();
         if (!passes(job, prefs) || seen.has(dk)) continue;
         seen.add(dk); passing.push(job);
       }
@@ -259,3 +312,9 @@ export function browserNotify(digest: string) {
     new Notification(parts[0].replace(/:$/, ''), { body: parts.slice(1, 4).map(p => p.split('\n')[0]).join('\n') });
   } catch {}
 }
+
+// Employers named in published 2025 lists (Great Place To Work India/Asia, LinkedIn Top Companies India). Lists show company averages, not a specific team.
+export const BEST_WORKPLACES = ['Adobe', 'Visa', 'NVIDIA', 'Novartis', 'Schneider Electric', 'Ericsson', 'Eaton', 'Bayer', 'HDFC Life', 'Accenture', 'Infosys', 'TCS'];
+const WELL_REGARDED = [...BEST_WORKPLACES.map(x => x.toLowerCase()), 'tata consultancy services'];
+const PERKS = ['health insurance', 'medical insurance', 'bonus', 'stock options', 'rsu', 'esop', 'wellness', 'parental leave', 'paid leave', 'relocation', 'learning budget', 'retirement', 'gratuity', 'insurance'];
+const CULTURE = ['work-life balance', 'flexible', 'hybrid', 'inclusive', 'diversity', 'mentorship', 'career development', 'wellbeing', 'psychological safety', 'learning'];

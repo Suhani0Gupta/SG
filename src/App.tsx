@@ -1,13 +1,13 @@
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { Search, RefreshCw, ArrowDown, ArrowUp, Bookmark, X, ExternalLink, MapPin, Building2, AlertTriangle, CheckCircle2, HelpCircle, Undo2 } from 'lucide-react';
-import { loadJobs, loadPrefs, loadHealth, runScan, savePrefs, getSettings, patchSettings, notifyTest, checkCompany, lastScanTime, DEFAULT_COMPANIES, waLink, browserNotify, callMeBotUrl, sendVerifyCode, checkVerifyCode, clearWhatsapp, startPhoneCheck, inIndia, TA_TERMS, hasTerm, analyzeMetrics, INTERVIEW_PREP, encryptBackup, restoreBackup } from './engine';
+import { loadJobs, loadPrefs, loadHealth, runScan, savePrefs, getSettings, patchSettings, notifyTest, checkCompany, lastScanTime, DEFAULT_COMPANIES, waLink, browserNotify, BEST_WORKPLACES, getAdzuna, saveAdzuna, testAdzuna, callMeBotUrl, sendVerifyCode, checkVerifyCode, clearWhatsapp, startPhoneCheck, inIndia, TA_TERMS, hasTerm, analyzeMetrics, INTERVIEW_PREP, encryptBackup, restoreBackup } from './engine';
 
 const APP_NAME = 'Made with care'; // <- change your app's name here
 
 type Job = {
   title: string; company: string; location_normalized?: string; canonical_url: string;
   content_text?: string; score: number; matched_criteria: string[]; red_flags: string[];
-  unknown_fields: string[]; status: string; why_apply?: string; is_bengaluru?: boolean; is_remote?: boolean; first_seen?: string;
+  unknown_fields: string[]; status: string; why_apply?: string; is_bengaluru?: boolean; is_remote?: boolean; first_seen?: string; via?: string;
 };
 type Prefs = Record<string, any>;
 type Tab = 'jobs' | 'review' | 'saved' | 'applied' | 'skipped' | 'prefs' | 'cv' | 'linkedin' | 'settings' | 'alerts' | 'guide' | 'check' | 'sources';
@@ -224,7 +224,7 @@ export default function App() {
     ['saved', 'Saved', count(j => marks[j.canonical_url] === 'saved')],
     ['applied', 'Applied', count(j => marks[j.canonical_url] === 'applied')],
     ['skipped', 'Skipped', count(j => marks[j.canonical_url] === 'skipped')],
-    ['check', 'Check a job'], ['linkedin', 'LinkedIn'], ['cv', 'CV & details'], ['prefs', 'My preferences'], 
+    ['check', 'Check a job'], ['linkedin', 'LinkedIn & more'], ['cv', 'CV & details'], ['prefs', 'My preferences'], 
   ];
   const isList = ['jobs', 'review', 'saved', 'applied', 'skipped'].includes(tab);
   const chip = (on: boolean) => `rounded-full border px-3 py-1 text-xs font-semibold ${on ? 'border-bloom bg-bloom text-white' : 'border-line bg-card text-muted hover:border-bloom'}`;
@@ -254,7 +254,7 @@ export default function App() {
 
       <main className={`mx-auto max-w-7xl px-5 pt-6 ${isList ? 'pb-6' : 'pb-48'}`}>
         {msg && <div className="fade mb-5 flex justify-between gap-3 rounded-xl border border-line bg-card px-4 py-3 text-sm"><span>{msg}</span><button onClick={() => setMsg('')} aria-label="Dismiss"><X size={16} /></button></div>}
-        {tab === 'prefs' && <div className="fade"><PrefsView prefs={prefs} setPrefs={setPrefs} toast={showToast} /></div>}
+        {tab === 'prefs' && <div className="fade"><PrefsView prefs={prefs} setPrefs={setPrefs} toast={showToast} /><AdzunaBox toast={showToast} /></div>}
         {tab === 'check' && <div className="fade"><CheckJob profile={profile} extra={prefs?.must_have_keywords || []} /></div>}
         {tab === 'linkedin' && <div className="fade"><LinkedInView /></div>}
         {tab === 'cv' && <div className="fade"><CvView cv={cv} upload={uploadCv} remove={removeCv} profile={profile} setProfile={setProfile} toast={showToast} /></div>}
@@ -329,6 +329,7 @@ export default function App() {
                       <h2 className="font-display text-2xl font-extrabold leading-tight">{job.title}</h2>
                       <p className="mt-1 capitalize text-muted">{job.company} · {job.location_normalized || 'Location not stated'}</p>
                       {isMnc(job) && <span className="mt-2 inline-block rounded-full border border-bloom px-3 py-0.5 text-xs font-semibold text-ice">MNC / global company site</span>}
+                      {job.via && <p className="mt-1 text-xs text-muted">Found through {job.via}{job.via === 'Adzuna' ? ' (Jobs by Adzuna)' : ''}. Open the posting to check it.</p>}
                     </div>
                     <div className="w-28">
                       <p className="text-right font-display text-2xl font-extrabold">{job.score}<span className="text-sm font-semibold text-muted">/100</span></p>
@@ -413,6 +414,14 @@ function LinkedInView() {
   const save = (n: Added[]) => { setList(n); try { localStorage.setItem('jr_added', JSON.stringify(n)); } catch {} };
   const link = (kw: string) => `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(kw)}&location=${encodeURIComponent('Bengaluru, Karnataka, India')}${day ? '&f_TPR=r86400' : ''}${hyb ? '&f_WT=3' : ''}${easy ? '&f_AL=true' : ''}`;
   const kws = ['Talent Acquisition Manager', 'Senior Talent Acquisition Partner', 'Head of Talent Acquisition', 'Recruitment Manager', 'Talent Acquisition Lead'];
+  const [kw, setKw] = useState(kws[0]);
+  const dash = kw.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+  const sites: [string, string][] = [
+    ['Naukri', `https://www.naukri.com/${dash}-jobs-in-bengaluru`],
+    ['Indeed India', `https://in.indeed.com/jobs?q=${encodeURIComponent(kw)}&l=Bengaluru&fromage=3`],
+    ['Google Jobs', `https://www.google.com/search?q=${encodeURIComponent(kw + ' jobs in Bengaluru')}&ibp=htl;jobs`],
+    ['foundit', `https://www.foundit.in/srp/results?query=${encodeURIComponent(kw)}&locations=Bengaluru`],
+  ];
   const add = () => {
     if (!t.trim() || !/^https?:\/\//.test(u.trim())) return;
     save([{ id: String(Date.now()), title: t.trim(), company: c.trim(), url: u.trim(), applied: false }, ...list]);
@@ -444,6 +453,26 @@ function LinkedInView() {
           <li>After that, on any <b>Easy Apply</b> job LinkedIn fills everything in. You click Easy Apply, Next, then Submit.</li>
           <li>Tap the bell icon on a search to get these jobs by email every day.</li>
         </ol>
+      </div>
+
+      <div data-reveal className="rounded-2xl border border-line bg-card p-6">
+        <h2 className="font-display text-2xl font-extrabold">Search the other big job sites</h2>
+        <p className="mt-1 text-sm text-muted">This site cannot read Naukri, Indeed or Google Jobs listings, so these buttons open each site already searched for Bengaluru.</p>
+        <label className="mt-4 block text-sm font-semibold">Job title
+          <select className={field + ' sm:w-80'} value={kw} onChange={e => setKw(e.target.value)}>{kws.map(k => <option key={k}>{k}</option>)}</select></label>
+        <div className="mt-4 flex flex-wrap gap-3">
+          {sites.map(([n, u]) => <a key={n} href={u} target="_blank" rel="noreferrer" className="rounded-full border border-ice px-4 py-2 text-sm font-semibold text-ice hover:bg-bloom-soft">{n}</a>)}
+        </div>
+        <p className="mt-3 text-xs text-muted">If a button lands on a general page, type the job title into that site's search box. These sites change their links sometimes.</p>
+      </div>
+
+      <div data-reveal className="rounded-2xl border border-line bg-card p-6">
+        <h2 className="font-display text-2xl font-extrabold">Well-regarded employers</h2>
+        <p className="mt-1 text-sm text-muted">These companies appear in published 2025 best-workplace lists (Great Place To Work India and Asia, and LinkedIn Top Companies India). Each button opens Google Jobs for their talent acquisition roles in Bengaluru, which links to the company's own application page.</p>
+        <div className="mt-4 flex flex-wrap gap-3">
+          {BEST_WORKPLACES.map(n => <a key={n} href={`https://www.google.com/search?q=${encodeURIComponent(n + ' talent acquisition jobs in Bengaluru')}&ibp=htl;jobs`} target="_blank" rel="noreferrer" className="rounded-full border border-ice px-4 py-2 text-sm font-semibold text-ice hover:bg-bloom-soft">{n}</a>)}
+        </div>
+        <p className="mt-3 text-xs text-muted">These lists describe a company on average, and some are based on companies that applied to be assessed. They say nothing about one particular team, so also read recent employee reviews and ask about the team in your interviews.</p>
       </div>
 
       <div data-reveal className="rounded-2xl border border-line bg-card p-6">
@@ -707,6 +736,33 @@ const listFields: [string, string][] = [
   ['target_titles', 'Job titles I want'], ['title_keywords', 'Words that must be in the job title (any one)'], ['must_have_keywords', 'Skills and keywords I want to see'],
   ['avoid_keywords', 'Words that should lower the score'], ['blocklist_companies', 'Companies to hide (their jobs disappear right away)'], ['extra_companies', 'Extra companies to scan (the name in their Greenhouse job link, for example cloudflare)'],
 ];
+
+function AdzunaBox({ toast }: { toast: (s: string) => void }) {
+  const a = getAdzuna();
+  const [id, setId] = useState(a.id); const [key, setKey] = useState(a.key); const [res, setRes] = useState('');
+  const field = 'mt-1 w-full rounded-xl border border-line bg-card px-3 py-2.5 transition focus:border-ice';
+  const go = async () => { saveAdzuna(id, key); setRes('Testing…'); setRes(await testAdzuna()); toast('Saved. Press Scan for new jobs to use it.'); };
+  return (
+    <div data-reveal className="mt-6 max-w-3xl rounded-2xl border border-line bg-card p-6">
+      <h2 className="font-display text-2xl font-extrabold">More jobs from across India (optional)</h2>
+      <p className="mt-1 text-sm text-muted">Adzuna collects jobs from thousands of sites, including Indian ones, and gives the biggest boost to the number of results. It is free, but you need your own key.</p>
+      <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-muted">
+        <li>Register for free at <b>developer.adzuna.com</b>.</li>
+        <li>Copy your Application ID and Application key.</li>
+        <li>Paste them below and press Save and test.</li>
+      </ol>
+      <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        <label className="block text-sm font-semibold">Application ID<input className={field} value={id} onChange={e => setId(e.target.value)} autoComplete="off" /></label>
+        <label className="block text-sm font-semibold">Application key<input type="password" className={field} value={key} onChange={e => setKey(e.target.value)} autoComplete="off" /></label>
+      </div>
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <button onClick={go} className="rounded-full bg-bloom px-5 py-2.5 text-sm font-semibold text-white hover:bg-bloom-hover">Save and test</button>
+        <span className="text-sm text-muted">{res}</span>
+      </div>
+      <p className="mt-3 text-xs text-muted">The key stays in this browser only. Each scan uses about 6 requests from your free allowance. Jobs found this way are marked Jobs by Adzuna, and their company type is not checked.</p>
+    </div>
+  );
+}
 
 function PrefsView({ prefs, setPrefs, toast }: { prefs: Prefs | null; setPrefs: (p: Prefs) => void; toast: (s: string) => void }) {
   const [saving, setSaving] = useState(false);
